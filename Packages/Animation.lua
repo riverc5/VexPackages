@@ -1,6 +1,7 @@
 local PackageIndex = script.Parent._Index
 
-local package = PackageIndex["Shimmer"]["Shimmer"]
+
+local package = PackageIndex["Animation"]["Animation"]
 
 if package.ClassName == "ModuleScript" then
 	return require(package)
