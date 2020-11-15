@@ -11,13 +11,14 @@
 --// SERVICES
 
 local ContentProvider = game:GetService('ContentProvider')
+local KeyframeSequenceProvider = game:GetService('KeyframeSequenceProvider')
 
 --// VARIABLES
 
 local Animation = {}
 Animation.__index = Animation
 
-local AnimationDatabase = script.Parent.AnimationDatabase
+local AnimationDatabase = script.AnimationDatabase
 local ActiveHumanoid = nil
 local UrlDatabase = require(script.Parent.Parent.UrlDatabase)
 local Environment = require(script.Parent.Parent.Environment.Environment)
@@ -192,6 +193,44 @@ function Animation:LoadAnimation(AnimationOrId, Humanoid)
     NewAnimation.PhysicalAnimationTrack.Stopped:Connect(function()
         NewAnimation.IsPlaying.Value = false
     end)
+
+    local MaxRetries = 8
+	local Tries = 0
+
+	function TryGetKeyframe()
+		Tries += 1
+		if MaxRetries == Tries then return end
+		local NowTick = tick()
+		local success, result = pcall(function() return KeyframeSequenceProvider:GetKeyframeSequenceAsync('rbxassetid://' .. Id) end)
+		if success == true then
+			return result
+		else
+			game:GetService('RunService').Stepped:Wait()
+			TryGetKeyframe()
+		end
+	end
+
+	local Sequence = TryGetKeyframe()
+
+	if Sequence then
+		local Markers = {}
+		local Keyframes = Sequence:GetKeyframes()
+
+		for _, Keyframe in pairs(Keyframes) do
+			local TheseMarkers = Keyframe:GetMarkers()
+			for _, NewMarker in pairs(TheseMarkers) do
+				table.insert(Markers, NewMarker)
+			end
+		end
+        for _,v in pairs(Markers) do
+            print(v)
+			local Bindable = Instance.new('BindableEvent')
+			NewAnimation[v.Name] = Bindable.Event
+			NewAnimation.PhysicalAnimationTrack:GetMarkerReachedSignal(v.Name):Connect(function()
+				Bindable:Fire()
+			end)
+		end
+	end
 
     return NewAnimation
 

@@ -17,6 +17,5 @@ return {
     IsStudio = RunService:IsStudio(),
     IsRunning = RunService:IsRunning(),
     IsRunMode = RunService:IsRunMode(),
-    IsEditMode = RunService:IsEdit()
 
 }
