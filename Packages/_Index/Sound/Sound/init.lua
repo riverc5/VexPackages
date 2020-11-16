@@ -164,4 +164,24 @@ function SoundModule:StopAllSounds()
 
 end
 
+function SoundModule:SetActive(PartOrVector3OrModel)
+
+    if PartOrVector3OrModel:IsA('Model') then
+        if PartOrVector3OrModel.PrimaryPart then
+            ActiveMeta = PartOrVector3OrModel.PrimaryPart
+            return
+        else
+            error('The primary part of the model meta you specified has not been specified. Please set it before calling SoundModule:PlaySound() on a model meta.')
+            return
+        end
+    end
+
+    ActiveMeta = PartOrVector3OrModel
+
+end
+
+function SoundModule:SetDefaultConfig(ConfigActive)
+    DefaultConfig = ConfigActive
+end
+
 return SoundModule
