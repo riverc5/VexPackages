@@ -17,14 +17,13 @@ local ContentProvider = game:GetService('ContentProvider')
 
 local SoundDatabase = require(script.SoundDatabase)
 local UrlDatabase = require(script.Parent.Parent.UrlDatabase)
-local Tween = require(script.Parent.Parent.Tween.Tween)
+local Environment = require(script.Parent.Parent.Environment.Environment)
 
 local SoundModule = {}
 SoundModule.__index = SoundModule
 
 local ActiveTagName = 'ActiveSound'
 
-local ActiveTween
 local DefaultConfig
 local ActiveMeta
 
@@ -33,7 +32,11 @@ local ActiveMeta
 function InstantizeSound(Id, Meta, Config)
 
     local Sound = Instance.new('Sound')
-    --/ ***** Set Properties from Config
+    for PropertyName, Property in pairs(Config) do
+        if Sound[PropertyName] then
+            Sound[PropertyName] = Property
+        end
+    end
     Sound.SoundId = UrlDatabase.RobloxAssetPrefix .. Id
     Sound.Parent = Meta
 
@@ -62,13 +65,11 @@ function InstantizeMetaPart(Vector)
 
 end
 
-function SoundModule:PlaySound(IdOrName, PartOrVector3OrModel, Tween, OptionalConfig)
+function SoundModule:PlaySound(IdOrName, PartOrVector3OrModel, OptionalConfig, DestroyAfterPlaying ) --/ DestroyAfterPlaying default true
 
     local ConfigToUse
     local IdToUse
     local MetaToUse
-    local DoesTween
-    local TweenToUse
 
     if (not IdOrName) then error('IdOrName is nil!') return end
 
@@ -93,8 +94,12 @@ function SoundModule:PlaySound(IdOrName, PartOrVector3OrModel, Tween, OptionalCo
         if ActiveMeta then
             MetaToUse = ActiveMeta
         else
-            error('No PartOrVector3OrModel has been specified. Please set the active meta or supply this argument when calling SoundModule:PlaySound()')
-            return
+            if Environment.IsClient == true then
+                MetaToUse = nil
+            else
+                error('No PartOrVector3OrModel has been specified. Please set the active meta or supply this argument when calling SoundModule:PlaySound()')
+                return
+            end
         end
 
     elseif PartOrVector3OrModel then
@@ -113,38 +118,49 @@ function SoundModule:PlaySound(IdOrName, PartOrVector3OrModel, Tween, OptionalCo
             InstantizeMetaPart(PartOrVector3OrModel)
         end
     end
-    
-    if not Tween then
-        if ActiveTween then
-            DoesTween = true
-            TweenToUse = ActiveTween
-        else
-            DoesTween = false
+
+    if DefaultConfig then
+        if (not OptionalConfig) then
+            ConfigToUse = DefaultConfig
+        elseif OptionalConfig then
+            ConfigToUse = OptionalConfig
         end
-    elseif Tween then
-        DoesTween = true
-        TweenToUse = Tween
+    elseif (not DefaultConfig) then
+        if OptionalConfig then
+            ConfigToUse = OptionalConfig
+        elseif (not OptionalConfig) then
+            ConfigToUse = {}
+        end
     end
 
-    local SoundObject = InstantizeSound(IdToUse, MetaToUse, ConfigToUse)
+    local SoundObject = InstantizeSound(IdToUse, MetaToUse, ConfigToUse) 
     
     ContentProvider:PreloadAsync({SoundObject})
 
-    local ActualVolume = SoundObject.Volume
-    local WhenToFadeOut = SoundObject.TimeLength - TweenToUse.Time
-    if DoesTween == true then
-        SoundObject.Volume = 0
-        SoundObject:Play()
-        coroutine.wrap(function()
-            Tween(SoundObject, TweenToUse, {Volume = ActualVolume})
-        end)()
-        return
-    elseif DoesTween == false then
-        return
+    if not MetaToUse then
+        SoundService:PlayLocalSound(SoundObject)
+        return SoundObject
     end
-        
+
+    SoundObject:Play()
+
+    if DestroyAfterPlaying == true then
+        SoundObject.Ended:Connect(function()
+            SoundObject:Destroy()
+        end)
+    end
 
     return SoundObject
+
+end
+
+function SoundModule:StopAllSounds()
+
+    local Tagged = CollectionService:GetTagged('ActiveSound')
+
+    for _, Sound in pairs(Tagged) do
+        Sound:Destroy()
+    end
 
 end
 
